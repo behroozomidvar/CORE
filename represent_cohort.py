@@ -3,35 +3,22 @@
 
 import psycopg2
 import sys
-import cohorts
 import trajectories
 import sequence_matching
 import core_functions
 import time
 import events
 
-def common_actions(traj1, traj2):
-	common = []
-	for event1 in traj1:
-		for event2 in traj2:
-			if event1.action == event2.action:
-				members = [event1.patient, event2.patient]
-				action = event1.action
-				psi = [event1.time, event2.time]
-				aggregated_event = events.AggregatedEvent(members,action,psi)
-				flag = False
-				for entity in common:
-					if entity.action == aggregated_event.action:
-						flag = True
-						if event1.time >= min(entity.psi) and event2.time <= min(entity.psi):
-							entity.psi = psi
-							break
-				if flag == False:
-					common.append(aggregated_event)
-	return common
+# CONFIGURATION PARAMETERS - BEGIN
+random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
+nb_random_patients = 10
+show_representation = False
+# CONFIGURATION PARAMETERS - END
 
+# DB CONNECTION - BEGIN
 conn = psycopg2.connect("dbname='core' user='omidvarb' host='localhost' password='212799'")
 cur = conn.cursor()
+# DB CONNECTION - END
 
 # READ INPUT PARAMETERS - BEGIN
 start = time.time()
@@ -54,33 +41,34 @@ dataset_name = dataset_line.strip()
 access_path_to_dataset = dataset_name +"/"
 end = time. time()
 dur = round((end - start)*1000,2)
-print "read parameters in "+str(dur)+" ms."
+# print "read parameters in "+str(dur)+" ms."
 # READ INPUT PARAMETERS - END
 
 # FIND COHORT MEMBERS - BEGIN
 start = time.time()
-# print "evaluating patients info against the input parameters ..."
+cohort_members_query = ""
 cohort_members = []
-cohort_members_query = "select distinct(p.patient_id) from patients p, events e where p.patient_id=e.patient_id and p.dataset='"+dataset_name+"' and e.dataset = '"+dataset_name+"' "
-if gender != "*":
-	cohort_members_query += "and p.gender='"+gender+"' "
-if age != "*":
-	cohort_members_query += "and p.age ="+str(age)+" "
-if life != "*":
-	cohort_members_query += "and p.life = '"+life+"' "
-if dataset_name == "a" and location != "*":
-	cohort_members_query += "and p.location = '"+location+"' "
-if actions_line != "*":
-	cohort_members_query += "and e.action_id in (select action_id from actions where name in ("+actions_line+"));"
-
-print cohort_members_query
+if random_patients == True:
+	cohort_members_query = "select patient_id from patients where dataset='"+dataset_name+"' order by random() limit "+str(nb_random_patients)+";"
+else:
+	cohort_members_query = "select distinct(p.patient_id) from patients p, events e where p.patient_id=e.patient_id and p.dataset='"+dataset_name+"' and e.dataset = '"+dataset_name+"' "
+	if gender != "*":
+		cohort_members_query += "and p.gender='"+gender+"' "
+	if age != "*":
+		cohort_members_query += "and p.age ="+str(age)+" "
+	if life != "*":
+		cohort_members_query += "and p.life = '"+life+"' "
+	if dataset_name == "a" and location != "*":
+		cohort_members_query += "and p.location = '"+location+"' "
+	if actions_line != "*":
+		cohort_members_query += "and e.action_id in (select action_id from actions where name in ("+actions_line+"));"
 cur.execute(cohort_members_query)
 rows = cur.fetchall()
 for row in rows:
 	cohort_members.append(row[0])
 end = time. time()
 dur = round((end - start)*1000,2)
-print "found "+str(len(cohort_members))+" members for the cohort in "+str(dur)+" ms."
+print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
 if len(cohort_members) == 0:
 	print "there is a problem!"
 	exit(1)
@@ -119,7 +107,7 @@ for patient1 in cohort_members:
 			continue
 		trajectory1 = trajectories_of[patient1]
 		trajectory2 = trajectories_of[patient2]
-		common_actions_between_trajectories = common_actions(trajectory1,trajectory2)
+		common_actions_between_trajectories = core_functions.common_actions(trajectory1,trajectory2)
 		for common_action_between_trajectories in common_actions_between_trajectories:
 			# max_length = float(max(length_of_trajectory[patient1],length_of_trajectory[patient2]))
 			# cost = round((max_length - (max(ccc.psi) - min(ccc.psi)))/max_length,2)
@@ -127,7 +115,7 @@ for patient1 in cohort_members:
 			all_aggregated_events_of_the_cohort.append(aggregated_event)
 end = time. time()
 dur = round((end - start)*1000,2)
-print "computed all aggregated trajectories in "+str(dur)+" ms."
+print "computed aggregated events in "+str(dur)+" ms."
 # FIND ALL AGGREGATED EVENTS IN THE COHORT - END
 
 # BULDING REPRESENTATIONS - BEGIN
@@ -145,21 +133,17 @@ for aggregated_event in all_aggregated_events_of_the_cohort:
 	else:
 		actions_in_the_buffer.append(aggregated_event.action)
 		my_buffer.append(aggregated_event)
-end = time. time()
-dur = round((end - start)*1000,2)
-print "built representation in "+str(dur)+" ms."
-# BULDING REPRESENTATIONS - END
 
-# APPLYING SIGNIFICANCE THRESHOLD - BEGIN
-start = time.time()
-# print "building representations ..."
+cohort_representation = ""
 for element in my_buffer:
 	significance = len(element.psi) / 2
 	dispersion = max(element.psi) - min(element.psi)
 	if significance > significance_threshold:
-		print element.action, "significance:", significance, "dispersion:", dispersion
+		cohort_representation += element.action + "significance:" + str(significance) + "dispersion:" + str(dispersion)+"\n"
+if show_representation == True:
+	print cohort_representation
 end = time. time()
 dur = round((end - start)*1000,2)
-print "done in "+str(dur)+" ms."
+print "built representation in "+str(dur)+" ms."
 # APPLYING SIGNIFICANCE THRESHOLD - END
 
