@@ -8,12 +8,32 @@ import sequence_matching
 import core_functions
 import time
 import events
+import random
 
 # CONFIGURATION PARAMETERS - BEGIN
 random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
-nb_random_patients = 350
+nb_random_patients = 10
 show_representation = False
+enable_clustering = True
+nb_clusters = 10
 # CONFIGURATION PARAMETERS - END
+
+# CLUSTERING - BEGIN
+final_nb_cluster = 2
+sum_nb_cluster = 0
+if enable_clustering == True:
+	ratio = 1 - float(nb_clusters) / float(nb_random_patients)
+	for random_step in range(0,10):
+		temp_nb_cluster = 0
+		for i in range(0,nb_clusters-2):
+			chance = random.uniform(0, 1)
+			if chance < ratio:
+				temp_nb_cluster += 1
+		sum_nb_cluster += temp_nb_cluster
+	final_nb_cluster = int(sum_nb_cluster / 10.0)
+if final_nb_cluster < nb_random_patients:
+	 nb_random_patients = final_nb_cluster
+# CLUSTERING - END
 
 # DB CONNECTION - BEGIN
 conn = psycopg2.connect("dbname='core' user='omidvarb' host='localhost' password='212799'")
