@@ -11,7 +11,7 @@ import events
 
 # CONFIGURATION PARAMETERS - BEGIN
 random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
-nb_random_patients = 10
+nb_random_patients = 350
 show_representation = False
 # CONFIGURATION PARAMETERS - END
 
