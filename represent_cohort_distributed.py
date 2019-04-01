@@ -9,12 +9,17 @@ import core_functions
 import time
 import events
 import random
+from pyspark.sql import SparkSession
+from pyspark import SparkContext, SparkConf
+
+conf = SparkConf().setAppName("behrooz").setMaster("local")
+sc = SparkContext(conf=conf)
 
 # CONFIGURATION PARAMETERS - BEGIN
 random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
-nb_random_patients = 250
+nb_random_patients = 100
 show_representation = False
-enable_clustering = True
+enable_clustering = False
 nb_clusters = 200
 # CONFIGURATION PARAMETERS - END
 
@@ -31,7 +36,7 @@ if enable_clustering == True:
 				temp_nb_cluster += 1
 		sum_nb_cluster += temp_nb_cluster
 	final_nb_cluster += int(sum_nb_cluster / 10.0)
-nb_random_patients = final_nb_cluster
+	nb_random_patients = final_nb_cluster
 # CLUSTERING - END
 
 # DB CONNECTION - BEGIN
@@ -87,7 +92,7 @@ for row in rows:
 	cohort_members.append(row[0])
 end = time. time()
 dur = round((end - start)*1000,2)
-# print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
+print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
 print str(dur)+" ms."
 if len(cohort_members) == 0:
 	print "there is a problem!"
@@ -117,6 +122,56 @@ dur = round((end - start)*1000,2)
 # print "collected trajectories in "+str(dur)+" ms."
 print str(dur)+" ms."
 # FIND COHORT TRAJECTORIES - END
+
+def sss(tr):
+	event_list = []
+	for e in tr:
+		event_list.append(e.action)
+	return event_list
+
+def intersection(lst): 
+    cnt = 0
+    lst1 = lst[0]
+    lst2 = lst[1]
+    lst3 = []
+    for l1 in lst1:
+    	for l2 in lst2:
+    		if l1 == l2:
+    			lst3.append(l1)
+    return lst3
+
+def everything(l1,l2):
+	ll = []
+	for l in l1:
+		ll.append(l)
+	for l in l2:
+		ll.append(l)
+	return ll
+
+list_trajectories_of = []
+for d in trajectories_of:
+	list_trajectories_of.append(trajectories_of[d])
+
+distData = sc.parallelize(list_trajectories_of)
+ddd0 = distData.map(sss)
+
+ddd = distData.map(sss).cartesian(ddd0).map(intersection).reduce(everything)
+
+# 
+
+exit()
+
+yyy = sc.parallelize(ddd0)
+
+def fff(v):
+	if v[1]>10:
+		return True
+
+counts = yyy.map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b).filter(fff)
+print counts.collect()
+
+# print ddd
+exit()
 
 # FIND ALL AGGREGATED EVENTS IN THE COHORT - BEGIN
 start = time.time()
