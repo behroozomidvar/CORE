@@ -12,11 +12,27 @@ import random
 
 # CONFIGURATION PARAMETERS - BEGIN
 random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
-nb_random_patients = 250
-show_representation = False
+nb_random_patients = 500
+show_representation = True
 enable_clustering = True
 nb_clusters = 200
+significance_threshold = 0.01
+dataset_name = 'a' # either 'a' (agir) or 'r' (rambam)
+demographics_line = "F,57,*,True"
+actions_line = "'pec OXY E','pec FIT B'"
 # CONFIGURATION PARAMETERS - END
+
+# SETTING COHORT DEMOGRAPHICS - BEGIN
+demographics = demographics_line.split(",")
+gender = demographics[0]
+age = demographics[1]
+location = demographics[2]
+life = demographics[3]
+# SETTING COHORT DEMOGRAPHICS - END
+
+# DEFINITION OF CONSTANTS - BEGIN
+dataset_size = {'a': 56286, 'r': 260099}
+# DEFINITION OF CONSTANTS - END
 
 # CLUSTERING - BEGIN
 final_nb_cluster = 2
@@ -38,30 +54,6 @@ nb_random_patients = final_nb_cluster
 conn = psycopg2.connect("dbname='core' user='omidvarb' host='localhost' password='212799'")
 cur = conn.cursor()
 # DB CONNECTION - END
-
-# READ INPUT PARAMETERS - BEGIN
-start = time.time()
-input_parameters_file = open("input.dat","r")
-dataset_line = input_parameters_file.readline() # either "agir" or "rambam"
-demographics_line = input_parameters_file.readline()
-actions_line = input_parameters_file.readline()
-significance_threshold = float(input_parameters_file.readline())
-
-demographics_line = demographics_line.strip()
-demographics = demographics_line.split(",")
-gender = demographics[0]
-age = demographics[1]
-location = demographics[2]
-life = demographics[3]
-
-actions_line = actions_line.strip()
-
-dataset_name = dataset_line.strip()
-access_path_to_dataset = dataset_name +"/"
-end = time. time()
-dur = round((end - start)*1000,2)
-# print "read parameters in "+str(dur)+" ms."
-# READ INPUT PARAMETERS - END
 
 # FIND COHORT MEMBERS - BEGIN
 start = time.time()
@@ -87,8 +79,8 @@ for row in rows:
 	cohort_members.append(row[0])
 end = time. time()
 dur = round((end - start)*1000,2)
-# print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
-print str(dur)+" ms."
+print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
+# print str(dur)+" ms."
 if len(cohort_members) == 0:
 	print "there is a problem!"
 	exit(1)
@@ -156,17 +148,44 @@ for aggregated_event in all_aggregated_events_of_the_cohort:
 		actions_in_the_buffer.append(aggregated_event.action)
 		my_buffer.append(aggregated_event)
 
-cohort_representation = ""
+cohort_representation = []
+max_significance = 0
 for element in my_buffer:
 	significance = len(element.psi) / 2
 	dispersion = max(element.psi) - min(element.psi)
-	if significance > significance_threshold:
-		cohort_representation += element.action + "significance:" + str(significance) + "dispersion:" + str(dispersion)+"\n"
-if show_representation == True:
-	print cohort_representation
+	cohort_representation.append(events.RepresentationEvent(element.action,significance,dispersion))
+	if significance > max_significance:
+		max_significance = significance
 end = time. time()
 dur = round((end - start)*1000,2)
 # print "built representation in "+str(dur)+" ms."
 print str(dur)+" ms."
 # APPLYING SIGNIFICANCE THRESHOLD - END
 
+# NORMALIZE SIGNIFICANCE IN COHORT REPRESENTATION - BEGIN
+start = time. time()
+for e in cohort_representation:
+	e.significance /= float(max_significance)
+end = time. time()
+dur = round((end - start)*1000,2)
+print "normalized significance in "+str(dur)+" ms."
+# NORMALIZE SIGNIFICANCE IN COHORT REPRESENTATION - END
+
+pruned_representation = []
+for e in cohort_representation:
+	if e.significance > significance_threshold:
+		pruned_representation.append(e)
+
+if show_representation == True:
+	print pruned_representation
+
+# MEASURE QUALITY OF REPRESENTATION - BEGIN
+start = time.time()
+fit = core_functions.get_fit(pruned_representation,trajectories_of)
+print "fit", fit
+coverage = core_functions.get_coverage(pruned_representation,trajectories_of)
+print "coverage", coverage
+generality = core_functions.get_generality(pruned_representation,dataset_name,dataset_size[dataset_name])
+print "generality", generality
+print "measured the quality of the representation in "+str(dur)+" ms."
+# MEASURE QUALITY OF REPRESENTATION - END

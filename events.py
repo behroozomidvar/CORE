@@ -14,6 +14,14 @@ class AggregatedEvent:
 	def __repr__(self):
 		return repr((self.members, self.action, self.psi))
 
+class RepresentationEvent:
+	def __init__(self, action, significance, dispersion):
+		self.action = action
+		self.significance = significance
+		self.dispersion = dispersion
+	def __repr__(self):
+		return repr((self.action, self.significance, self.dispersion))
+
 def convert_to_aggregated_event(e):
 	members = []
 	psi = []
