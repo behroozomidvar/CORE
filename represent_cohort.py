@@ -14,8 +14,11 @@ import random
 random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
 nb_random_patients = 500
 show_representation = True
-enable_clustering = True
+enable_clustering = False
+enable_sampling = True
 nb_clusters = 200
+sampling_ratio = 0.5 # a value between 0 and 1, "1" means no sampling
+attribute_for_stratified_sampling = 'age' # should be one of the followings "age", "gender", "life"
 significance_threshold = 0.01
 dataset_name = 'a' # either 'a' (agir) or 'r' (rambam)
 demographics_line = "F,57,*,True"
@@ -32,7 +35,13 @@ life = demographics[3]
 
 # DEFINITION OF CONSTANTS - BEGIN
 dataset_size = {'a': 56286, 'r': 260099}
+cohort_members = []
 # DEFINITION OF CONSTANTS - END
+
+# DB CONNECTION - BEGIN
+conn = psycopg2.connect("dbname='core' user='omidvarb' host='localhost' password='212799'")
+cur = conn.cursor()
+# DB CONNECTION - END
 
 # CLUSTERING - BEGIN
 final_nb_cluster = 2
@@ -47,43 +56,59 @@ if enable_clustering == True:
 				temp_nb_cluster += 1
 		sum_nb_cluster += temp_nb_cluster
 	final_nb_cluster += int(sum_nb_cluster / 10.0)
-nb_random_patients = final_nb_cluster
+	nb_random_patients = final_nb_cluster
 # CLUSTERING - END
 
-# DB CONNECTION - BEGIN
-conn = psycopg2.connect("dbname='core' user='omidvarb' host='localhost' password='212799'")
-cur = conn.cursor()
-# DB CONNECTION - END
+# STRATIFIED SAMPLING - BEGIN
+attribute_categories_of = {}
+attribute_categories_of['age'] = ["0-18","18-24","24-34","34-44","44-49","49-55","55-150"]
+attribute_categories_of['life'] = [True,False]
+attribute_categories_of['gender'] = ["M","F"]
+for attribute_category in attribute_categories_of[attribute_for_stratified_sampling]:
+	stratification_limit = int(float(nb_random_patients) * sampling_ratio / float(len(attribute_categories_of[attribute_for_stratified_sampling])))
+	stratification_query = ""
+	if attribute_for_stratified_sampling == "age":
+		age_cat = attribute_category.split("-")
+		lower_age = age_cat[0]
+		higher_age = age_cat[1]
+		stratification_query = "select patient_id from patients where age >= "+lower_age+" and age <= "+higher_age+" and dataset='"+dataset_name+"' order by random() limit "+str(stratification_limit)
+	else:
+		stratification_query = "select patient_id from patients where "+attribute_for_stratified_sampling+" = '"+attribute_category+"' and dataset='"+dataset_name+"' order by random() limit "+str(stratification_limit)
+	cur.execute(stratification_query)
+	rows = cur.fetchall()
+	for row in rows:
+		cohort_members.append(row[0])
+# STRATIFIED SAMPLING - END
 
 # FIND COHORT MEMBERS - BEGIN
 start = time.time()
-cohort_members_query = ""
-cohort_members = []
-if random_patients == True:
-	cohort_members_query = "select patient_id from patients where dataset='"+dataset_name+"' order by random() limit "+str(nb_random_patients)+";"
-else:
-	cohort_members_query = "select distinct(p.patient_id) from patients p, events e where p.patient_id=e.patient_id and p.dataset='"+dataset_name+"' and e.dataset = '"+dataset_name+"' "
-	if gender != "*":
-		cohort_members_query += "and p.gender='"+gender+"' "
-	if age != "*":
-		cohort_members_query += "and p.age ="+str(age)+" "
-	if life != "*":
-		cohort_members_query += "and p.life = '"+life+"' "
-	if dataset_name == "a" and location != "*":
-		cohort_members_query += "and p.location = '"+location+"' "
-	if actions_line != "*":
-		cohort_members_query += "and e.action_id in (select action_id from actions where name in ("+actions_line+"));"
-cur.execute(cohort_members_query)
-rows = cur.fetchall()
-for row in rows:
-	cohort_members.append(row[0])
-end = time. time()
-dur = round((end - start)*1000,2)
-print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
-# print str(dur)+" ms."
-if len(cohort_members) == 0:
-	print "there is a problem!"
-	exit(1)
+if enable_sampling == False:
+	cohort_members_query = ""
+	if random_patients == True:
+		cohort_members_query = "select patient_id from patients where dataset='"+dataset_name+"' order by random() limit "+str(nb_random_patients)+";"
+	else:
+		cohort_members_query = "select distinct(p.patient_id) from patients p, events e where p.patient_id=e.patient_id and p.dataset='"+dataset_name+"' and e.dataset = '"+dataset_name+"' "
+		if gender != "*":
+			cohort_members_query += "and p.gender='"+gender+"' "
+		if age != "*":
+			cohort_members_query += "and p.age ="+str(age)+" "
+		if life != "*":
+			cohort_members_query += "and p.life = '"+life+"' "
+		if dataset_name == "a" and location != "*":
+			cohort_members_query += "and p.location = '"+location+"' "
+		if actions_line != "*":
+			cohort_members_query += "and e.action_id in (select action_id from actions where name in ("+actions_line+"));"
+	cur.execute(cohort_members_query)
+	rows = cur.fetchall()
+	for row in rows:
+		cohort_members.append(row[0])
+	end = time. time()
+	dur = round((end - start)*1000,2)
+	print "found "+str(len(cohort_members))+" cohort members in "+str(dur)+" ms."
+	# print str(dur)+" ms."
+	if len(cohort_members) == 0:
+		print "there is a problem!"
+		exit(1)
 # FIND COHORT MEMBERS - END
 
 # FIND COHORT TRAJECTORIES - BEGIN
