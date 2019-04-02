@@ -44,40 +44,13 @@ cur = conn.cursor()
 # DB CONNECTION - END
 
 # CLUSTERING - BEGIN
-final_nb_cluster = 2
-sum_nb_cluster = 0
 if enable_clustering == True:
-	ratio = 1 - float(nb_clusters) / float(nb_random_patients)
-	for random_step in range(0,10):
-		temp_nb_cluster = 0
-		for i in range(0,nb_clusters-2):
-			chance = random.uniform(0, 1)
-			if chance < ratio:
-				temp_nb_cluster += 1
-		sum_nb_cluster += temp_nb_cluster
-	final_nb_cluster += int(sum_nb_cluster / 10.0)
-	nb_random_patients = final_nb_cluster
+	nb_random_patients = core_functions.nb_patients_for_clustering(nb_clusters,nb_random_patients)
 # CLUSTERING - END
 
 # STRATIFIED SAMPLING - BEGIN
-attribute_categories_of = {}
-attribute_categories_of['age'] = ["0-18","18-24","24-34","34-44","44-49","49-55","55-150"]
-attribute_categories_of['life'] = [True,False]
-attribute_categories_of['gender'] = ["M","F"]
-for attribute_category in attribute_categories_of[attribute_for_stratified_sampling]:
-	stratification_limit = int(float(nb_random_patients) * sampling_ratio / float(len(attribute_categories_of[attribute_for_stratified_sampling])))
-	stratification_query = ""
-	if attribute_for_stratified_sampling == "age":
-		age_cat = attribute_category.split("-")
-		lower_age = age_cat[0]
-		higher_age = age_cat[1]
-		stratification_query = "select patient_id from patients where age >= "+lower_age+" and age <= "+higher_age+" and dataset='"+dataset_name+"' order by random() limit "+str(stratification_limit)
-	else:
-		stratification_query = "select patient_id from patients where "+attribute_for_stratified_sampling+" = '"+attribute_category+"' and dataset='"+dataset_name+"' order by random() limit "+str(stratification_limit)
-	cur.execute(stratification_query)
-	rows = cur.fetchall()
-	for row in rows:
-		cohort_members.append(row[0])
+if enable_sampling == True:
+	cohort_members = core_functions.stratified_sampling(sampling_ratio,attribute_for_stratified_sampling,nb_random_patients,dataset_name)
 # STRATIFIED SAMPLING - END
 
 # FIND COHORT MEMBERS - BEGIN
