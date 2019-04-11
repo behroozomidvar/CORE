@@ -1,5 +1,6 @@
 import events
 import psycopg2
+import random
 
 # DB CONNECTION - BEGIN
 conn = psycopg2.connect("dbname='core' user='omidvarb' host='localhost' password='212799'")
@@ -58,7 +59,7 @@ def stratified_sampling(sampling_ratio,attribute_for_stratified_sampling,nb_rand
 	cohort_members = []
 	attribute_categories_of = {}
 	attribute_categories_of['age'] = ["0-18","18-24","24-34","34-44","44-49","49-55","55-150"]
-	attribute_categories_of['life'] = [True,False]
+	attribute_categories_of['life'] = ["True","False"]
 	attribute_categories_of['gender'] = ["M","F"]
 	for attribute_category in attribute_categories_of[attribute_for_stratified_sampling]:
 		stratification_limit = int(float(nb_random_patients) * sampling_ratio / float(len(attribute_categories_of[attribute_for_stratified_sampling])))
@@ -118,7 +119,7 @@ def get_generality(cohort_representation,dataset,nb_all_patients):
 	generality_query = "select patient_id from events where action_id in (select action_id from actions where name in ("+actions_in_the_cohort+")) and dataset = '"+dataset+"' group by patient_id having count(*) = (select count(*) from actions where name in ("+actions_in_the_cohort+"));"
 	cur.execute(generality_query)
 	rows = cur.fetchall()
-	return round(float(len(rows)) / float(nb_all_patients),2)
+	return round(float(len(rows)) / float(nb_all_patients),4)
 
 
 # REPRESENTATION QUALITY MEASURES - END

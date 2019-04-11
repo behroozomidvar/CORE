@@ -12,17 +12,18 @@ import random
 
 # CONFIGURATION PARAMETERS - BEGIN
 random_patients = True # just for experiments -- It ignores reading input parameters and randomize patients.
-nb_random_patients = 500
+nb_random_patients = 50
 show_representation = True
 enable_clustering = False
-enable_sampling = True
-nb_clusters = 200
-sampling_ratio = 0.5 # a value between 0 and 1, "1" means no sampling
-attribute_for_stratified_sampling = 'age' # should be one of the followings "age", "gender", "life"
+enable_sampling = False
+nb_clusters = 50
+sampling_ratio = 0.2 # a value between 0 and 1, "1" means no sampling
+attribute_for_stratified_sampling = 'random' # should be one of the followings "age", "gender", "life" -- it can also be "random" to turn stratified sampling to random sampling.
 significance_threshold = 0.01
-dataset_name = 'a' # either 'a' (agir) or 'r' (rambam)
-demographics_line = "F,57,*,True"
-actions_line = "'pec OXY E','pec FIT B'"
+dataset_name = 'r' # either 'a' (agir) or 'r' (rambam)
+demographics_line = "F,40,*,*"
+# actions_line = "'pec OXY E','pec FIT B'"
+actions_line = "*"
 # CONFIGURATION PARAMETERS - END
 
 # SETTING COHORT DEMOGRAPHICS - BEGIN
@@ -50,7 +51,11 @@ if enable_clustering == True:
 
 # STRATIFIED SAMPLING - BEGIN
 if enable_sampling == True:
-	cohort_members = core_functions.stratified_sampling(sampling_ratio,attribute_for_stratified_sampling,nb_random_patients,dataset_name)
+	if attribute_for_stratified_sampling != "random":
+		cohort_members = core_functions.stratified_sampling(sampling_ratio,attribute_for_stratified_sampling,nb_random_patients,dataset_name)
+	else:
+		nb_random_patients *= sampling_ratio
+		enable_sampling = False
 # STRATIFIED SAMPLING - END
 
 # FIND COHORT MEMBERS - BEGIN
@@ -82,6 +87,7 @@ if enable_sampling == False:
 	if len(cohort_members) == 0:
 		print "there is a problem!"
 		exit(1)
+# print "there are "+str(len(cohort_members))+" cohort members."
 # FIND COHORT MEMBERS - END
 
 # FIND COHORT TRAJECTORIES - BEGIN
@@ -105,7 +111,7 @@ for row in rows:
 end = time. time()
 dur = round((end - start)*1000,2)
 # print "collected trajectories in "+str(dur)+" ms."
-print str(dur)+" ms."
+print "trajectory extraction: "+str(dur)+" ms."
 # FIND COHORT TRAJECTORIES - END
 
 # FIND ALL AGGREGATED EVENTS IN THE COHORT - BEGIN
@@ -127,7 +133,7 @@ for patient1 in cohort_members:
 end = time. time()
 dur = round((end - start)*1000,2)
 # print "computed aggregated events in "+str(dur)+" ms."
-print str(dur)+" ms."
+print "compute aggregated events: "+str(dur)+" ms."
 # FIND ALL AGGREGATED EVENTS IN THE COHORT - END
 
 # BULDING REPRESENTATIONS - BEGIN
@@ -157,7 +163,7 @@ for element in my_buffer:
 end = time. time()
 dur = round((end - start)*1000,2)
 # print "built representation in "+str(dur)+" ms."
-print str(dur)+" ms."
+print "representation fromation: "+str(dur)+" ms."
 # APPLYING SIGNIFICANCE THRESHOLD - END
 
 # NORMALIZE SIGNIFICANCE IN COHORT REPRESENTATION - BEGIN
@@ -166,7 +172,7 @@ for e in cohort_representation:
 	e.significance /= float(max_significance)
 end = time. time()
 dur = round((end - start)*1000,2)
-print "normalized significance in "+str(dur)+" ms."
+# print "normalized significance in "+str(dur)+" ms."
 # NORMALIZE SIGNIFICANCE IN COHORT REPRESENTATION - END
 
 pruned_representation = []
@@ -178,12 +184,12 @@ if show_representation == True:
 	print pruned_representation
 
 # MEASURE QUALITY OF REPRESENTATION - BEGIN
-start = time.time()
-fit = core_functions.get_fit(pruned_representation,trajectories_of)
-print "fit", fit
-coverage = core_functions.get_coverage(pruned_representation,trajectories_of)
-print "coverage", coverage
-generality = core_functions.get_generality(pruned_representation,dataset_name,dataset_size[dataset_name])
-print "generality", generality
-print "measured the quality of the representation in "+str(dur)+" ms."
+# start = time.time()
+# fit = core_functions.get_fit(pruned_representation,trajectories_of)
+# print "fit", fit
+# coverage = core_functions.get_coverage(pruned_representation,trajectories_of)
+# print "coverage", coverage
+# generality = core_functions.get_generality(pruned_representation,dataset_name,dataset_size[dataset_name])
+# print "generality", generality
+# print "measured the quality of the representation in "+str(dur)+" ms."
 # MEASURE QUALITY OF REPRESENTATION - END
